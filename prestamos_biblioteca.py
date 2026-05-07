@@ -3,17 +3,7 @@ import sqlite3
 # ─────────────────────────────────────────────
 # CONEXIÓN
 # ─────────────────────────────────────────────
-
-def conectar():
-    """Establece y devuelve la conexión a la base de datos SQLite."""
-    try:
-        conexion = sqlite3.connect("biblioteca.db")
-        conexion.row_factory = sqlite3.Row  # Permite acceder a las columnas por nombre
-        return conexion
-    except sqlite3.Error as e:
-        print(f"[ERROR] No se pudo conectar a la base de datos: {e}")
-        return None
-
+from database import conectar
 # ─────────────────────────────────────────────
 # CRUD - CREAR PRÉSTAMO
 # ─────────────────────────────────────────────
