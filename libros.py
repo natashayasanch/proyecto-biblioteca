@@ -161,3 +161,41 @@ def eliminar_libro(id_libro):
         return False
     finally:
         conexion.close()
+def eliminar_libro_con_prestamos(id_libro):
+    """
+    Elimina un libro y todos sus prestamos asociados.
+    Usa una transaccion con commit/rollback.
+    """
+    conexion = conectar()
+    if conexion is None:
+        return False
+
+    try:
+        cursor = conexion.cursor()
+        # Verificar si el libro existe
+        cursor.execute("SELECT id, titulo FROM libros WHERE id = ?", (id_libro,))
+        libro = cursor.fetchone()
+        if not libro:
+            print(f"No existe un libro con id {id_libro}.")
+            return False
+
+        # Contar prestamos para mostrar informacion
+        cursor.execute("SELECT COUNT(*) FROM prestamos WHERE libro_id = ?", (id_libro,))
+        num_prestamos = cursor.fetchone()[0]
+
+        # Eliminar prestamos asociados
+        cursor.execute("DELETE FROM prestamos WHERE libro_id = ?", (id_libro,))
+        # Eliminar el libro
+        cursor.execute("DELETE FROM libros WHERE id = ?", (id_libro,))
+
+        # Confirmar la transaccion
+        conexion.commit()
+        print(f"Libro '{libro['titulo']}' (id {id_libro}) eliminado junto con {num_prestamos} prestamos.")
+        return True
+
+    except Exception as e:
+        conexion.rollback()
+        print(f"Error en la transaccion. Se ha deshecho todo. Detalle: {e}")
+        return False
+    finally:
+        conexion.close()
