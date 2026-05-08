@@ -4,6 +4,31 @@ import sqlite3
 # CONEXIÓN
 # ─────────────────────────────────────────────
 from database import conectar
+
+# ─────────────────────────────────────────────
+# FUNCIÓN AUXILIAR - OBTENER PRÉSTAMO POR ID
+# ─────────────────────────────────────────────
+
+def obtener_prestamo_por_id(prestamo_id):
+    """
+    Obtiene un préstamo por su ID.
+    Retorna el préstamo como un objeto Row o None si no existe.
+    """
+    conexion = conectar()
+    if conexion is None:
+        return None
+    
+    try:
+        cursor = conexion.cursor()
+        cursor.execute("SELECT * FROM prestamos WHERE id = ?", (prestamo_id,))
+        return cursor.fetchone()
+    except sqlite3.Error as e:
+        print(f"[ERROR] No se pudo obtener el préstamo: {e}")
+        return None
+    finally:
+        cursor.close()
+        conexion.close()
+
 # ─────────────────────────────────────────────
 # CRUD - CREAR PRÉSTAMO
 # ─────────────────────────────────────────────
@@ -54,6 +79,7 @@ def crear_prestamo(libro_id, usuario, fecha):
         cursor.close()
         conexion.close()
 
+
 # ─────────────────────────────────────────────
 # CRUD - LEER PRÉSTAMOS
 # ─────────────────────────────────────────────
@@ -93,7 +119,8 @@ def leer_prestamos(usuario=None, libro_id=None, fecha_desde=None, fecha_hasta=No
             print("[INFO] No se encontraron préstamos con los filtros indicados.")
             return
 
-        print("\n{'─'*65}")
+        # CORREGIDO: error de sintaxis en la línea 79
+        print("\n" + "─" * 65)
         print(f"{'ID':<5} {'Libro ID':<10} {'Usuario':<20} {'Fecha Préstamo':<16} {'Devolución':<16} {'Estado'}")
         print("─" * 75)
         for p in prestamos:
@@ -106,6 +133,7 @@ def leer_prestamos(usuario=None, libro_id=None, fecha_desde=None, fecha_hasta=No
     finally:
         cursor.close()
         conexion.close()
+
 
 # ─────────────────────────────────────────────
 # CRUD - ACTUALIZAR PRÉSTAMO (DEVOLUCIÓN)
@@ -157,6 +185,7 @@ def devolver_libro(prestamo_id, fecha_devolucion):
         cursor.close()
         conexion.close()
 
+
 # ─────────────────────────────────────────────
 # CRUD - ELIMINAR PRÉSTAMO
 # ─────────────────────────────────────────────
@@ -189,6 +218,7 @@ def eliminar_prestamo(prestamo_id):
     finally:
         cursor.close()
         conexion.close()
+
 
 # ─────────────────────────────────────────────
 # JOIN - PRÉSTAMOS CON DATOS DEL LIBRO
@@ -240,6 +270,7 @@ def prestamos_con_libros():
         cursor.close()
         conexion.close()
 
+
 # ─────────────────────────────────────────────
 # COUNT - TOTAL DE PRÉSTAMOS POR LIBRO
 # ─────────────────────────────────────────────
@@ -286,3 +317,4 @@ def total_prestamos_por_libro():
     finally:
         cursor.close()
         conexion.close()
+       
