@@ -1,7 +1,7 @@
 import sys
 from datetime import date, datetime
 
-# IMPORTAR MÓDULOS CORREGIDOS
+# IMPORTAR MÓDULOS 
 from database import conectar
 from libros import crear_libro, leer_libros, actualizar_libro, eliminar_libro_con_prestamos
 from prestamos_biblioteca import (
@@ -97,7 +97,7 @@ def main():
         print(" No se puede continuar sin conexión a la base de datos.")
         sys.exit(1)
     
-    # BUCLE CÍCLICO DEL MENÚ (REQUISITO OBLIGATORIO)
+    # BUCLE CÍCLICO DEL MENÚ 
     while True:
         print("\n" + "-" * 50)
         print("MENÚ PRINCIPAL")
@@ -229,7 +229,7 @@ def main():
             leer_prestamos(usuario, libro_id, fecha_desde, fecha_hasta)
 
         
-        # OPCIÓN 7: Devolver libro (AHORA CON VALIDACIÓN CORRECTA)
+        # OPCIÓN 7: Devolver libro
         elif opcion == 7:
             print("\n--- DEVOLVER LIBRO ---")
             prestamo_id = obtener_entero_positivo("ID del préstamo a devolver: ")
