@@ -1,43 +1,47 @@
 import sqlite3
 
 # ─────────────────────────────────────────────
-# CONEXIÓN
+# CONEXIÓN A LA BASE DE DATOS
 # ─────────────────────────────────────────────
 from database import conectar
 
-# ─────────────────────────────────────────────
-# FUNCIÓN AUXILIAR - OBTENER PRÉSTAMO POR ID
-# ─────────────────────────────────────────────
 
+# ─────────────────────────────────────────────
+# OBTENER PRÉSTAMO POR ID (FUNCIÓN AUXILIAR)
+# ─────────────────────────────────────────────
 def obtener_prestamo_por_id(prestamo_id):
     """
-    Obtiene un préstamo por su ID.
-    Retorna el préstamo como un objeto Row o None si no existe.
+    Busca un préstamo por su ID en la BD.
+    Si no existe, devuelve None (bastante útil para validaciones).
     """
     conexion = conectar()
     if conexion is None:
-        return None
-    
+        return None  # si no hay conexión, no seguimos
+
     try:
         cursor = conexion.cursor()
+
+        # consulta simple por id
         cursor.execute("SELECT * FROM prestamos WHERE id = ?", (prestamo_id,))
         return cursor.fetchone()
+
     except sqlite3.Error as e:
         print(f"[ERROR] No se pudo obtener el préstamo: {e}")
         return None
+
     finally:
+        # cierro todo siempre para evitar problemas de conexiones abiertas
         cursor.close()
         conexion.close()
 
-# ─────────────────────────────────────────────
-# CRUD - CREAR PRÉSTAMO
-# ─────────────────────────────────────────────
 
+# ─────────────────────────────────────────────
+# CREAR PRÉSTAMO
+# ─────────────────────────────────────────────
 def crear_prestamo(libro_id, usuario, fecha):
     """
-    Crea un nuevo préstamo para un libro.
-    Comprueba que el libro exista y esté disponible antes de insertar.
-    Actualiza la disponibilidad del libro a 0 (no disponible).
+    Crea un préstamo nuevo.
+    IMPORTANTE: antes comprueba que el libro exista y esté disponible.
     """
     conexion = conectar()
     if conexion is None:
@@ -46,7 +50,7 @@ def crear_prestamo(libro_id, usuario, fecha):
     try:
         cursor = conexion.cursor()
 
-        # Comprobar si el libro existe
+        # primero miro si el libro existe
         cursor.execute("SELECT id, titulo, disponible FROM libros WHERE id = ?", (libro_id,))
         libro = cursor.fetchone()
 
@@ -54,40 +58,40 @@ def crear_prestamo(libro_id, usuario, fecha):
             print(f"[ERROR] No existe ningún libro con id {libro_id}.")
             return
 
-        # Comprobar si el libro está disponible
+        # si ya está prestado, no dejamos repetirlo
         if libro["disponible"] == 0:
-            print(f"[ERROR] El libro '{libro['titulo']}' no está disponible actualmente.")
+            print(f"[ERROR] El libro '{libro['titulo']}' ya está prestado.")
             return
 
-        # Insertar el préstamo
+        # si todo está bien, creo el préstamo
         cursor.execute(
             "INSERT INTO prestamos (libro_id, usuario, fecha_prestamo, fecha_devolucion, estado) "
             "VALUES (?, ?, ?, NULL, 'activo')",
             (libro_id, usuario, fecha)
         )
 
-        # Marcar el libro como no disponible
+        # y marco el libro como no disponible
         cursor.execute("UPDATE libros SET disponible = 0 WHERE id = ?", (libro_id,))
 
         conexion.commit()
         print(f"[OK] Préstamo creado: '{libro['titulo']}' → {usuario} ({fecha})")
 
     except sqlite3.Error as e:
-        conexion.rollback()
-        print(f"[ERROR] No se pudo crear el préstamo. Operación revertida: {e}")
+        conexion.rollback()  # si algo falla, deshago todo
+        print(f"[ERROR] No se pudo crear el préstamo: {e}")
+
     finally:
         cursor.close()
         conexion.close()
 
 
 # ─────────────────────────────────────────────
-# CRUD - LEER PRÉSTAMOS
+# LEER PRÉSTAMOS (CON FILTROS)
 # ─────────────────────────────────────────────
-
 def leer_prestamos(usuario=None, libro_id=None, fecha_desde=None, fecha_hasta=None):
     """
-    Muestra todos los préstamos registrados.
-    Admite filtros opcionales por usuario, libro_id y rango de fechas.
+    Muestra préstamos con filtros opcionales.
+    Esto me sirve bastante para depurar o buscar cosas rápido.
     """
     conexion = conectar()
     if conexion is None:
@@ -99,15 +103,19 @@ def leer_prestamos(usuario=None, libro_id=None, fecha_desde=None, fecha_hasta=No
         query = "SELECT * FROM prestamos WHERE 1=1"
         params = []
 
+        # voy añadiendo filtros según lo que me pasen
         if usuario:
             query += " AND usuario = ?"
             params.append(usuario)
+
         if libro_id:
             query += " AND libro_id = ?"
             params.append(libro_id)
+
         if fecha_desde:
             query += " AND fecha_prestamo >= ?"
             params.append(fecha_desde)
+
         if fecha_hasta:
             query += " AND fecha_prestamo <= ?"
             params.append(fecha_hasta)
@@ -116,20 +124,23 @@ def leer_prestamos(usuario=None, libro_id=None, fecha_desde=None, fecha_hasta=No
         prestamos = cursor.fetchall()
 
         if not prestamos:
-            print("[INFO] No se encontraron préstamos con los filtros indicados.")
+            print("[INFO] No se encontraron préstamos.")
             return
 
-        # CORREGIDO: error de sintaxis en la línea 79
+        # formato bonito en consola (aunque sea básico)
         print("\n" + "─" * 65)
         print(f"{'ID':<5} {'Libro ID':<10} {'Usuario':<20} {'Fecha Préstamo':<16} {'Devolución':<16} {'Estado'}")
         print("─" * 75)
+
         for p in prestamos:
             devolucion = p["fecha_devolucion"] if p["fecha_devolucion"] else "Pendiente"
             print(f"{p['id']:<5} {p['libro_id']:<10} {p['usuario']:<20} {p['fecha_prestamo']:<16} {devolucion:<16} {p['estado']}")
+
         print("─" * 75)
 
     except sqlite3.Error as e:
         print(f"[ERROR] No se pudieron leer los préstamos: {e}")
+
     finally:
         cursor.close()
         conexion.close()
@@ -138,12 +149,9 @@ def leer_prestamos(usuario=None, libro_id=None, fecha_desde=None, fecha_hasta=No
 # ─────────────────────────────────────────────
 # CRUD - ACTUALIZAR PRÉSTAMO (DEVOLUCIÓN)
 # ─────────────────────────────────────────────
-
 def devolver_libro(prestamo_id, fecha_devolucion):
     """
-    Registra la devolución de un préstamo.
-    Actualiza la fecha de devolución, el estado del préstamo y
-    restaura la disponibilidad del libro a 1 (disponible).
+    Marca un préstamo como devuelto y vuelve a liberar el libro.
     """
     conexion = conectar()
     if conexion is None:
@@ -152,48 +160,48 @@ def devolver_libro(prestamo_id, fecha_devolucion):
     try:
         cursor = conexion.cursor()
 
-        # Obtener el préstamo
+        # busco el préstamo primero
         cursor.execute("SELECT * FROM prestamos WHERE id = ?", (prestamo_id,))
         prestamo = cursor.fetchone()
 
         if prestamo is None:
-            print(f"[ERROR] No existe ningún préstamo con id {prestamo_id}.")
+            print(f"[ERROR] No existe el préstamo {prestamo_id}.")
             return
 
+        # si ya está devuelto, no hago nada
         if prestamo["estado"] == "devuelto":
-            print(f"[INFO] El préstamo {prestamo_id} ya fue devuelto.")
+            print(f"[INFO] Este préstamo ya estaba devuelto.")
             return
 
         libro_id = prestamo["libro_id"]
 
-        # Actualizar fecha de devolución y estado del préstamo
+        # actualizo préstamo
         cursor.execute(
             "UPDATE prestamos SET fecha_devolucion = ?, estado = 'devuelto' WHERE id = ?",
             (fecha_devolucion, prestamo_id)
         )
 
-        # Restaurar disponibilidad del libro
+        # y libero el libro otra vez
         cursor.execute("UPDATE libros SET disponible = 1 WHERE id = ?", (libro_id,))
 
         conexion.commit()
-        print(f"[OK] Préstamo {prestamo_id} marcado como devuelto el {fecha_devolucion}. Libro {libro_id} disponible de nuevo.")
+        print(f"[OK] Préstamo {prestamo_id} devuelto correctamente.")
 
     except sqlite3.Error as e:
         conexion.rollback()
-        print(f"[ERROR] No se pudo registrar la devolución. Operación revertida: {e}")
+        print(f"[ERROR] Fallo al registrar devolución: {e}")
+
     finally:
         cursor.close()
         conexion.close()
 
 
 # ─────────────────────────────────────────────
-# CRUD - ELIMINAR PRÉSTAMO
+# ELIMINAR PRÉSTAMO
 # ─────────────────────────────────────────────
-
 def eliminar_prestamo(prestamo_id):
     """
-    Elimina un préstamo por su ID.
-    Usa commit() si tiene éxito y rollback() si ocurre algún error.
+    Borra un préstamo por ID (cuidado con esto, es definitivo).
     """
     conexion = conectar()
     if conexion is None:
@@ -202,24 +210,25 @@ def eliminar_prestamo(prestamo_id):
     try:
         cursor = conexion.cursor()
 
-        # Comprobar que el préstamo existe
+        # compruebo si existe antes de borrar
         cursor.execute("SELECT id FROM prestamos WHERE id = ?", (prestamo_id,))
         if cursor.fetchone() is None:
-            print(f"[ERROR] No existe ningún préstamo con id {prestamo_id}.")
+            print(f"[ERROR] No existe el préstamo {prestamo_id}.")
             return
 
         cursor.execute("DELETE FROM prestamos WHERE id = ?", (prestamo_id,))
         conexion.commit()
-        print(f"[OK] Préstamo {prestamo_id} eliminado correctamente.")
+
+        print(f"[OK] Préstamo {prestamo_id} eliminado.")
 
     except sqlite3.Error as e:
         conexion.rollback()
-        print(f"[ERROR] No se pudo eliminar el préstamo. Operación revertida: {e}")
+        print(f"[ERROR] No se pudo eliminar: {e}")
+
     finally:
         cursor.close()
         conexion.close()
-
-
+        
 # ─────────────────────────────────────────────
 # JOIN - PRÉSTAMOS CON DATOS DEL LIBRO
 # ─────────────────────────────────────────────
@@ -236,7 +245,7 @@ def prestamos_con_libros():
 
     try:
         cursor = conexion.cursor()
-
+  # hago un JOIN para unir préstamos con su libro correspondiente
         cursor.execute("""
             SELECT
                 p.id            AS id_prestamo,
@@ -255,7 +264,7 @@ def prestamos_con_libros():
         if not resultados:
             print("[INFO] No hay préstamos registrados.")
             return
-
+  # formato de salida en consola
         print("\n" + "─" * 85)
         print(f"{'ID':<5} {'Usuario':<20} {'Título':<25} {'Préstamo':<14} {'Devolución':<14} {'Estado'}")
         print("─" * 85)
